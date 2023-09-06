@@ -1,9 +1,11 @@
 import gpsd
 import math
 import time
+from datetime import datetime
+from typing import Tuple
 
 class FourDPosition:
-    def __init__(self, position, alt, timestamp):
+    def __init__(self, position: Tuple[float, float], alt: float, timestamp: datetime):
         self.lat = position[0]
         self.lon = position[1]
         self.alt = alt
@@ -11,14 +13,17 @@ class FourDPosition:
 
     def distance_between_two_gps_points(self, lat1, lon1, lat2, lon2):
         R = 6371 # Radius of the earth in km
-        dLat = deg2rad(lat2-lat1) # deg2rad below
-        dLon = deg2rad(lon2-lon1)
+        dLat = self.deg2rad(lat2-lat1) # deg2rad below
+        dLon = self.deg2rad(lon2-lon1)
         a = math.sin(dLat/2) * math.sin(dLat/2) + \
-            math.cos(deg2rad(lat1)) * math.cos(deg2rad(lat2)) * \
+            math.cos(self.deg2rad(lat1)) * math.cos(self.deg2rad(lat2)) * \
             math.sin(dLon/2) * math.sin(dLon/2)
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
         d = R * c # Distance in km
         return d * 1000 # Distance in m
+    
+    def deg2rad(self, deg):
+        return deg * (math.pi/180)
 
     def subtract(self, other):
         horiz = self.distance_between_two_gps_points(self.lat, self.lon, other.lat, other.lon)
@@ -32,8 +37,21 @@ class Displacement:
         self.distance = distance
         self.time = time 
 
-def deg2rad(deg):
-    return deg * (math.pi/180)
+class Odometer:
+    def __init__(self, origFix: FourDPosition):
+        self.origFix = origFix
+        self.distanceAccumulator = 0
+        self.lastFix = origFix
+
+    def addPosition(self, newFix:FourDPosition):
+        displacement = newFix.subtract(self.lastFix)
+        self.distanceAccumulator = self.distanceAccumulator + displacement.distance
+        self.lastFix = newFix
+
+    def get_average_speed(self):
+        elapsed = self.lastFix.timestamp - self.origFix.timestamp
+        hours = elapsed.total_seconds() / 60 / 60
+        return self.distanceAccumulator / 1000 / hours  # kilometers per hour
 
 
 def block_until_new_fix(last_position):
