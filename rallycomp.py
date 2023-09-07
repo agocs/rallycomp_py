@@ -6,11 +6,18 @@ from typing import Tuple
 
 
 class FourDPosition:
-    def __init__(self, position: Tuple[float, float], alt: float, timestamp: datetime):
+    def __init__(
+        self,
+        position: Tuple[float, float],
+        alt: float,
+        timestamp: datetime,
+        speed: float = 0,
+    ):
         self.lat = position[0]
         self.lon = position[1]
         self.alt = alt
         self.timestamp = timestamp
+        self.speed = speed
 
     def distance_between_two_gps_points(self, lat1, lon1, lat2, lon2):
         R = 6371  # Radius of the earth in km
@@ -72,8 +79,36 @@ class CAST:
             self.odo.get_elapsed_time().total_seconds() / 60 / 60
         ) * self.average  #  kilometers
         actual = self.odo.distanceAccumulator / 1000  # kilometers
-        differential = ideal - actual
+        differential = actual - ideal
         return differential / self.average * 60 * 60  # seconds
+
+
+class RallyComputer:
+    def __init__(self):
+        gpsd.connect()
+        packet = gpsd.get_current()
+        while packet.mode < 2:
+            time.sleep(1)
+            packet = gpsd.get_current()
+        self.odo = Odometer(
+            FourDPosition((packet.lat, packet.lon), packet.alt, packet.get_time())
+        )
+        self.cast = CAST(20, self.odo)
+
+    def update(self):
+        packet = self.block_until_new_fix()
+        self.odo.addPosition(
+            FourDPosition(
+                (packet.lat, packet.lon), packet.alt, packet.get_time(), packet.speed()
+            )
+        )
+
+    def block_until_new_fix(self):
+        packet = gpsd.get_current()
+        while packet.get_time() == self.odo.lastFix.timestamp:
+            time.sleep(0.05)
+            packet = gpsd.get_current()
+        return packet
 
 
 def block_until_new_fix(last_position):
