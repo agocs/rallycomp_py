@@ -75,12 +75,11 @@ def main(argv):
             shaded_area = "█" * (plus1 - minus1)
             paceWin.addstr(2, minus1 + 1, shaded_area, curses.color_pair(1))
 
-            # TODO: verify this math
+            # TODO: fix this math
             cursor_multiple = math.atan(rcomp.cast.get_offset()) / 2
             cursor_offset = int(pace_width / 2 * cursor_multiple)
             cursor_position = int(pace_width / 2) + cursor_offset
 
-            # TODO: figure out position of this cursor
             paceWin.addstr(2, cursor_position, "|", curses.color_pair(1))
 
             paceWin.addstr(3, 1, "Speed up!", curses.color_pair(1))
