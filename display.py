@@ -3,6 +3,11 @@ import sys
 from rallycomp import RallyComputer
 import math
 
+def atan_position(width: int, position: int) -> int :
+    cursor_multiple = math.atan(position / 4) / 1.2
+    cursor_offset = int(width / 2 * cursor_multiple)
+    return int(width / 2) + cursor_offset
+
 
 def main(argv):
     # BEGIN ncurses startup/initialization...
@@ -57,13 +62,13 @@ def main(argv):
             paceWin.bkgd(" ", curses.color_pair(1))
             paceWin.box()
             pace_width = paceWin.getmaxyx()[1]
-            minus10 = int(pace_width * 0.2)
-            minus5 = int(pace_width * 0.3)
-            minus1 = int(pace_width * 0.4)
-            zero = int(pace_width * 0.5)
-            plus1 = int(pace_width * 0.6)
-            plus5 = int(pace_width * 0.7)
-            plus10 = int(pace_width * 0.8)
+            minus10 = atan_position(pace_width, -10)
+            minus5 = atan_position(pace_width, -5)
+            minus1 = atan_position(pace_width, -1)
+            zero = atan_position(pace_width, 0)
+            plus1 = atan_position(pace_width, 1)
+            plus5 = atan_position(pace_width, 5)
+            plus10 = atan_position(pace_width, 10)
             paceWin.addstr(1, minus10, "-10", curses.color_pair(1))
             paceWin.addstr(1, minus5, "-5", curses.color_pair(1))
             paceWin.addstr(1, minus1, "-1", curses.color_pair(1))
@@ -72,15 +77,11 @@ def main(argv):
             paceWin.addstr(1, plus5, "5", curses.color_pair(1))
             paceWin.addstr(1, plus10, "10", curses.color_pair(1))
 
-            shaded_area = "█" * (plus1 - minus1)
+            shaded_area = "_" * (plus1 - minus1)
             paceWin.addstr(2, minus1 + 1, shaded_area, curses.color_pair(1))
 
-            # TODO: fix this math
-            cursor_multiple = math.atan(rcomp.cast.get_offset()) / 2
-            cursor_offset = int(pace_width / 2 * cursor_multiple)
-            cursor_position = int(pace_width / 2) + cursor_offset
-
-            paceWin.addstr(2, cursor_position, "|", curses.color_pair(1))
+            cursor_position = atan_position(pace_width, rcomp.cast.get_offset())
+            paceWin.addstr(2, cursor_position, "█", curses.color_pair(1))
 
             paceWin.addstr(3, 1, "Speed up!", curses.color_pair(1))
             paceWin.addstr(3, pace_width - 11, "Slow down!", curses.color_pair(1))
