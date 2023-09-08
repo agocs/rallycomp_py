@@ -3,7 +3,8 @@ import sys
 from rallycomp import RallyComputer
 import math
 
-def atan_position(width: int, position: int) -> int :
+
+def atan_position(width: int, position: int) -> int:
     cursor_multiple = math.atan(position / 4) / 1.2
     cursor_offset = int(width / 2 * cursor_multiple)
     return int(width / 2) + cursor_offset
@@ -66,9 +67,9 @@ def main(argv):
             minus5 = atan_position(pace_width, -5)
             minus1 = atan_position(pace_width, -1)
             zero = atan_position(pace_width, 0)
-            plus1 = atan_position(pace_width, 1)
-            plus5 = atan_position(pace_width, 5)
-            plus10 = atan_position(pace_width, 10)
+            plus1 = atan_position(pace_width, 1) - 2
+            plus5 = atan_position(pace_width, 5) - 2
+            plus10 = atan_position(pace_width, 10) - 3
             paceWin.addstr(1, minus10, "-10", curses.color_pair(1))
             paceWin.addstr(1, minus5, "-5", curses.color_pair(1))
             paceWin.addstr(1, minus1, "-1", curses.color_pair(1))
@@ -81,6 +82,10 @@ def main(argv):
             paceWin.addstr(2, minus1 + 1, shaded_area, curses.color_pair(1))
 
             cursor_position = atan_position(pace_width, rcomp.cast.get_offset())
+            if cursor_position<1:
+                cursor_position =1
+            if cursor_position > (pace_width-2):
+                cursor_position = (pace_width-2)
             paceWin.addstr(2, cursor_position, "█", curses.color_pair(1))
 
             paceWin.addstr(3, 1, "Speed up!", curses.color_pair(1))
