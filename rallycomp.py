@@ -158,7 +158,7 @@ class RallyComputer:
         packet = self.block_until_new_fix()
         self.odo.addPosition(
             FourDPosition(
-                (packet.lat, packet.lon), packet.alt, packet.get_time(), packet.speed()
+                (packet.lat, packet.lon), packet.alt, packet.get_time(), packet.hspeed
             )
         )
 

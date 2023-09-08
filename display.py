@@ -125,14 +125,12 @@ def main(argv):
             speedWin.refresh()
 
             # Current Instruction
-
             cast_str = "{:2.2f}".format(rcomp.cast.average)
             offset_str = "{:2.2f}".format(rcomp.cast.get_offset())
             time_remaining_str = str(rcomp.current_instruction.get_time_remaining())
             dist_remaining_str = "{:3.3f}".format(
                 rcomp.current_instruction.get_distance_remaining() / 1000
             )
-
             currWin = curses.newwin(9, 30, 14, 1)
             currWin.bkgd(" ", curses.color_pair(1))
             currWin.box()
