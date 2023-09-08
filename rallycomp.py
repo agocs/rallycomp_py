@@ -156,9 +156,11 @@ class RallyComputer:
 
     def update(self):
         packet = self.block_until_new_fix()
+        speed_mps = packet.hspeed
+        speed_kph = speed_mps * 3.6
         self.odo.addPosition(
             FourDPosition(
-                (packet.lat, packet.lon), packet.alt, packet.get_time(), packet.hspeed
+                (packet.lat, packet.lon), packet.alt, packet.get_time(), speed_kph
             )
         )
 
