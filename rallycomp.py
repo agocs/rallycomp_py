@@ -1,8 +1,8 @@
 import gpsd
 import math
 import time
-from datetime import datetime
-from typing import Tuple
+from datetime import datetime, timedelta
+from typing import Optional, Tuple
 
 
 class FourDPosition:
@@ -83,6 +83,64 @@ class CAST:
         return differential / self.average * 60 * 60  # seconds
 
 
+class Instruction:
+    def __init__(
+        self,
+        time: Optional[datetime] = None,
+        speed_kmh: Optional[float] = None,
+        distance_km: Optional[float] = None,
+    ):
+        if distance_km is not None:
+            self.absolute_distance = distance_km * 1000
+        else:
+            self.absolute_distance = None
+        self.absolute_time = time
+        self.speed = speed_kmh
+
+    def activate(self, odometer: Odometer):
+        self.odometer = odometer
+        if self.absolute_distance is not None and self.speed is not None:
+            self.activate_distance_speed()
+        elif self.absolute_time is not None and self.speed is not None:
+            self.activate_time_speed()
+        elif self.absolute_time is not None and self.absolute_distance is not None:
+            self.activate_time_distance()
+        else:
+            raise ValueError("Not enough information to activate instruction")
+
+    def activate_time_speed(self):
+        time_remaining = self.absolute_time - self.odometer.lastFix.timestamp
+        self.absolute_distance = (
+            self.odometer.distanceAccumulator
+            + self.speed * time_remaining.total_seconds() / 60 / 60 * 1000
+        )
+
+    def activate_time_distance(self):
+        time_remaining = self.absolute_time - self.odometer.lastFix.timestamp
+        self.speed = (
+            (self.absolute_distance - self.odometer.distanceAccumulator) / 1000
+        ) / (time_remaining.total_seconds() / 60 / 60)
+
+    def activate_distance_speed(self):
+        distance_remaining = self.absolute_distance - self.odometer.distanceAccumulator
+        time_to_add = timedelta(
+            seconds=(distance_remaining / 1000) / self.speed * 60 * 60
+        )
+        self.absolute_time = self.odometer.lastFix.timestamp + time_to_add
+
+    def get_time_remaining(self) -> timedelta:
+        """Returns time remaining in timedelta"""
+        return self.absolute_time - self.odometer.lastFix.timestamp
+
+    def get_distance_remaining(self) -> float:
+        """Returns distance remaining in meters"""
+        return self.absolute_distance - self.odometer.distanceAccumulator
+
+    def get_speed(self):
+        """Returns speed in km/h"""
+        return self.speed
+
+
 class RallyComputer:
     def __init__(self):
         gpsd.connect()
@@ -93,7 +151,8 @@ class RallyComputer:
         self.odo = Odometer(
             FourDPosition((packet.lat, packet.lon), packet.alt, packet.get_time())
         )
-        self.cast = CAST(20, self.odo)
+        self.cast = CAST(0, self.odo)
+        self.current_instruction = Instruction()
 
     def update(self):
         packet = self.block_until_new_fix()
@@ -109,6 +168,11 @@ class RallyComputer:
             time.sleep(0.05)
             packet = gpsd.get_current()
         return packet
+
+    def start_instruction(self, instruction: Instruction):
+        self.current_instruction = instruction
+        instruction.activate(self.odo)
+        self.cast = CAST(instruction.get_speed(), self.odo)
 
 
 def block_until_new_fix(last_position):

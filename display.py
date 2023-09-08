@@ -1,6 +1,6 @@
 import curses
 import sys
-from rallycomp import RallyComputer
+from rallycomp import Instruction, RallyComputer
 import math
 
 
@@ -39,6 +39,9 @@ def main(argv):
         initialized = False
 
         rcomp = RallyComputer()
+
+        demo_instruction = Instruction(distance_km=5, speed_kmh=20)
+        rcomp.start_instruction(demo_instruction)
 
         while True:
             # Header
@@ -82,10 +85,10 @@ def main(argv):
             paceWin.addstr(2, minus1 + 1, shaded_area, curses.color_pair(1))
 
             cursor_position = atan_position(pace_width, rcomp.cast.get_offset())
-            if cursor_position<1:
-                cursor_position =1
-            if cursor_position > (pace_width-2):
-                cursor_position = (pace_width-2)
+            if cursor_position < 1:
+                cursor_position = 1
+            if cursor_position > (pace_width - 2):
+                cursor_position = pace_width - 2
             paceWin.addstr(2, cursor_position, "█", curses.color_pair(1))
 
             paceWin.addstr(3, 1, "Speed up!", curses.color_pair(1))
@@ -125,6 +128,10 @@ def main(argv):
 
             cast_str = "{:2.2f}".format(rcomp.cast.average)
             offset_str = "{:2.2f}".format(rcomp.cast.get_offset())
+            time_remaining_str = str(rcomp.current_instruction.get_time_remaining())
+            dist_remaining_str = "{:3.3f}".format(
+                rcomp.current_instruction.get_distance_remaining() / 1000
+            )
 
             currWin = curses.newwin(9, 30, 14, 1)
             currWin.bkgd(" ", curses.color_pair(1))
@@ -134,11 +141,17 @@ def main(argv):
             )
             currWin.addstr(2, 2, "time remaining:", curses.color_pair(1))
             currWin.addstr(
-                2, currWin.getmaxyx()[1] - 9, "00:00:00", curses.color_pair(1)
+                2,
+                currWin.getmaxyx()[1] - len(time_remaining_str) - 1,
+                time_remaining_str,
+                curses.color_pair(1),
             )
             currWin.addstr(3, 2, "dist remaining", curses.color_pair(1))
             currWin.addstr(
-                3, currWin.getmaxyx()[1] - 8, "000.000", curses.color_pair(1)
+                3,
+                currWin.getmaxyx()[1] - len(dist_remaining_str) - 1,
+                dist_remaining_str,
+                curses.color_pair(1),
             )
             currWin.addstr(4, 2, "CAST:", curses.color_pair(1))
             currWin.addstr(4, currWin.getmaxyx()[1] - 6, cast_str, curses.color_pair(1))
@@ -146,11 +159,11 @@ def main(argv):
             currWin.addstr(
                 5, currWin.getmaxyx()[1] - 7, offset_str, curses.color_pair(1)
             )
-            if rcomp.cast.get_offset() > 0:
+            if rcomp.cast.get_offset() > 0.5:
                 currWin.addstr(
                     6, currWin.getmaxyx()[1] - 10, "Slow down", curses.color_pair(1)
                 )
-            elif rcomp.cast.get_offset() < 0:
+            elif rcomp.cast.get_offset() < -0.5:
                 currWin.addstr(
                     6, currWin.getmaxyx()[1] - 10, "Speed up!", curses.color_pair(1)
                 )

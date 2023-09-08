@@ -1,5 +1,5 @@
 import unittest
-from rallycomp import FourDPosition, Odometer
+from rallycomp import FourDPosition, Instruction, Odometer
 from datetime import datetime
 
 
@@ -82,3 +82,28 @@ class TestOdometer(unittest.TestCase):
         odo.addPosition(position3)
         self.assertEqual(odo.distanceAccumulator, 3706.4978246148758)
         self.assertEqual(odo.get_average_speed(), 1.8532489123074378)  # 1 mph ish
+
+
+class TestInstructions(unittest.TestCase):
+    def test_instruction_speed_distance(self):
+        position1 = FourDPosition((47.0, -122.0), 150, datetime(2020, 1, 1, 0, 0, 0, 0))
+        odo = Odometer(position1)
+        instruction = Instruction(speed_kmh=50, distance_km=50)  # one hour
+        instruction.activate(odo)
+        self.assertEqual(instruction.get_time_remaining().seconds, 3600)
+
+    def test_instruction_speed_time(self):
+        position1 = FourDPosition((47.0, -122.0), 150, datetime(2020, 1, 1, 0, 0, 0, 0))
+        odo = Odometer(position1)
+        instruction = Instruction(
+            speed_kmh=50, time=datetime(2020, 1, 1, 1, 0, 0, 0)
+        )  # 50 km
+        instruction.activate(odo)
+        self.assertEqual(instruction.get_distance_remaining(), 50000)
+
+    def test_instruction_time_distance(self):
+        position1 = FourDPosition((47.0, -122.0), 150, datetime(2020, 1, 1, 0, 0, 0, 0))
+        odo = Odometer(position1)
+        instruction = Instruction(time=datetime(2020, 1, 1, 1, 0, 0, 0), distance_km=50)
+        instruction.activate(odo)
+        self.assertEqual(instruction.get_speed(), 50)
