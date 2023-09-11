@@ -75,6 +75,7 @@ def main(argv):
 
         current_instruction = Instruction(distance_km=0, speed_kmh=0)
         rcomp.start_instruction(current_instruction)
+        rcomp.odo.mode = OdometerMode.PARK
 
         next_instrucion = Instruction()
 
@@ -326,7 +327,7 @@ def main(argv):
                 activate_window(commandTitlewin)
                 commandTitlewin.box()
                 commandTitlewin.addstr(
-                    1, 1, "Odometer Mode [D][R][P][C]", curses.color_pair(2)
+                    1, 1, "Odometer [D][R][P][C][Z]", curses.color_pair(2)
                 )
                 commandTitlewin.refresh()
 
@@ -359,8 +360,10 @@ def main(argv):
                         errorStr = "Cal: {}".format(rcomp.odo.calibration)
                     except Exception as err:
                         errorStr = str(err)
+                elif text.lower().startswith("z"):
+                    rcomp.odo.distanceAccumulator = 0
                 else:
-                    errorStr = "Unknown mode! [D], [R], [P]"
+                    errorStr = "Unknown mode! [D][R][P][C][Z]"
 
     except Exception as err:
         # Just printing from here will not work, as the program is still set to
