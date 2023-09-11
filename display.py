@@ -143,7 +143,7 @@ def main(argv):
 
             # Odometer
 
-            odo_string = "{:3.3f}".format(rcomp.odo.distanceAccumulator / 1000)
+            odo_string = "{:3.3f}".format(rcomp.odo.get_accumulated_distance() / 1000)
             odo_mode_string = rcomp.odo.mode.name
             odometerWindow = curses.newwin(5, 20, 9, 1)
             odometerWindow.bkgd(" ", curses.color_pair(1))
@@ -165,7 +165,7 @@ def main(argv):
             odometerWindow.refresh()
 
             # Speedometer
-            speed_str = "{:2.5f}".format(rcomp.odo.lastFix.speed)
+            speed_str = "{:2.5f}".format(rcomp.odo.get_last_speed())
             speedWin = curses.newwin(5, 20, 9, 21)
             speedWin.bkgd(" ", curses.color_pair(1))
             speedWin.box()
@@ -326,7 +326,7 @@ def main(argv):
                 activate_window(commandTitlewin)
                 commandTitlewin.box()
                 commandTitlewin.addstr(
-                    1, 1, "Odometer Mode [D] [R] [P]", curses.color_pair(2)
+                    1, 1, "Odometer Mode [D][R][P][C]", curses.color_pair(2)
                 )
                 commandTitlewin.refresh()
 
@@ -340,6 +340,25 @@ def main(argv):
                     rcomp.odo.mode = OdometerMode.REVERSE
                 elif text.lower().startswith("p"):
                     rcomp.odo.mode = OdometerMode.PARK
+                elif text.lower().startswith("c"):
+                    commandTitlewin.clear()
+                    activate_window(commandTitlewin)
+                    commandTitlewin.box()
+                    commandTitlewin.addstr(
+                        1, 1, "Enter expected odometer", curses.color_pair(2)
+                    )
+                    commandTitlewin.refresh()
+
+                    commandWin.clear()
+                    activate_window(commandWin)
+                    commandBox.edit()
+                    text = commandBox.gather()
+                    try:
+                        expected_distance = float(text)
+                        rcomp.odo.calibrate(expected_distance)
+                        errorStr = "Cal: {}".format(rcomp.odo.calibration)
+                    except Exception as err:
+                        errorStr = str(err)
                 else:
                     errorStr = "Unknown mode! [D], [R], [P]"
 

@@ -62,6 +62,16 @@ class Odometer:
         self.distanceAccumulator = 0
         self.lastFix = origFix
         self.mode = OdometerMode.PARK
+        self.calibration = calibration
+
+    def calibrate(self, expected_distance: float):
+        self.calibration = (expected_distance * 1000) / self.distanceAccumulator
+
+    def get_accumulated_distance(self):
+        return self.distanceAccumulator * self.calibration
+
+    def accumulate_distance(self, distance_meters: float):
+        self.distanceAccumulator = self.distanceAccumulator + distance_meters
 
     def addPosition(self, newFix: FourDPosition):
         displacement = newFix.subtract(self.lastFix)
@@ -74,7 +84,10 @@ class Odometer:
     def get_average_speed(self):
         elapsed = self.lastFix.timestamp - self.origFix.timestamp
         hours = elapsed.total_seconds() / 60 / 60
-        return self.distanceAccumulator / 1000 / hours  # kilometers per hour
+        return self.get_accumulated_distance() / 1000 / hours  # kilometers per hour
+
+    def get_last_speed(self):
+        return self.lastFix.speed * self.calibration
 
     def get_elapsed_time(self):
         return self.lastFix.timestamp - self.origFix.timestamp
@@ -89,7 +102,7 @@ class CAST:
         ideal = (
             self.odo.get_elapsed_time().total_seconds() / 60 / 60
         ) * self.average  #  kilometers
-        actual = self.odo.distanceAccumulator / 1000  # kilometers
+        actual = self.odo.get_accumulated_distance() / 1000  # kilometers
         differential = actual - ideal
         try:
             return differential / self.average * 60 * 60  # seconds
@@ -162,18 +175,20 @@ class Instruction:
     def activate_time_speed(self):
         time_remaining = self.absolute_time - self.odometer.lastFix.timestamp
         self.absolute_distance = (
-            self.odometer.distanceAccumulator
+            self.odometer.get_accumulated_distance()
             + self.speed * time_remaining.total_seconds() / 60 / 60 * 1000
         )
 
     def activate_time_distance(self):
         time_remaining = self.absolute_time - self.odometer.lastFix.timestamp
         self.speed = (
-            (self.absolute_distance - self.odometer.distanceAccumulator) / 1000
+            (self.absolute_distance - self.odometer.get_accumulated_distance()) / 1000
         ) / (time_remaining.total_seconds() / 60 / 60)
 
     def activate_distance_speed(self):
-        distance_remaining = self.absolute_distance - self.odometer.distanceAccumulator
+        distance_remaining = (
+            self.absolute_distance - self.odometer.get_accumulated_distance()
+        )
         try:
             time_to_add = timedelta(
                 seconds=(distance_remaining / 1000) / self.speed * 60 * 60
@@ -188,7 +203,7 @@ class Instruction:
 
     def get_distance_remaining(self) -> float:
         """Returns distance remaining in meters"""
-        return self.absolute_distance - self.odometer.distanceAccumulator
+        return self.absolute_distance - self.odometer.get_accumulated_distance()
 
 
 class RallyComputer:
@@ -276,7 +291,7 @@ def main_loop():
             FourDPosition((packet.lat, packet.lon), packet.alt, packet.get_time())
         )
         print(
-            f"Distance: {odo.distanceAccumulator / 1000} km \t Average: {odo.get_average_speed()} km/h \t CAST:{cast.average} \t Offset: {cast.get_offset()}"
+            f"Distance: {odo.get_accumulated_distance() / 1000} km \t Average: {odo.get_average_speed()} km/h \t CAST:{cast.average} \t Offset: {cast.get_offset()}"
         )
 
 
