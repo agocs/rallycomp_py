@@ -4,7 +4,7 @@ import datetime
 import sys
 import time
 import traceback
-from rallycomp import Instruction, RallyComputer
+from rallycomp import Instruction, OdometerMode, RallyComputer
 import math
 from dateutil import parser
 
@@ -253,18 +253,18 @@ def main(argv):
             nextWin.refresh()
 
             # Command
-            commandTitlewin = curses.newwin(3, 20, 24, 1)
+            commandTitlewin = curses.newwin(3, 30, 24, 1)
             commandTitlewin.bkgd(" ", curses.color_pair(1))
             commandTitlewin.box()
             commandTitlewin.refresh()
 
-            commandWin = curses.newwin(1, 20, 27, 1)
+            commandWin = curses.newwin(1, 30, 27, 1)
             commandWin.bkgd(" ", curses.color_pair(1))
             commandBox = curses.textpad.Textbox(commandWin)
             commandWin.refresh()
 
             # Errors
-            errorWin = curses.newwin(5, 20, 24, 21)
+            errorWin = curses.newwin(5, 20, 24, 31)
             errorWin.bkgd(" ", curses.color_pair(1))
             errorWin.box()
             errorWin.addstr(1, 1, "Errors", curses.color_pair(1) | curses.A_BOLD)
@@ -320,6 +320,28 @@ def main(argv):
                     )
                 else:
                     errorStr = "Instruction is not valid!"
+            if key == ord("o"):
+                errorStr = ""
+                commandTitlewin.clear()
+                activate_window(commandTitlewin)
+                commandTitlewin.box()
+                commandTitlewin.addstr(
+                    1, 1, "Odometer Mode [D] [R] [P]", curses.color_pair(2)
+                )
+                commandTitlewin.refresh()
+
+                commandWin.clear()
+                activate_window(commandWin)
+                commandBox.edit()
+                text = commandBox.gather()
+                if text.lower().startswith("d"):
+                    rcomp.odo.mode = OdometerMode.DRIVE
+                elif text.lower().startswith("r"):
+                    rcomp.odo.mode = OdometerMode.REVERSE
+                elif text.lower().startswith("p"):
+                    rcomp.odo.mode = OdometerMode.PARK
+                else:
+                    errorStr = "Unknown mode! [D], [R], [P]"
 
     except Exception as err:
         # Just printing from here will not work, as the program is still set to
