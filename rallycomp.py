@@ -1,3 +1,4 @@
+from enum import Enum
 import gpsd
 import math
 import time
@@ -49,15 +50,25 @@ class Displacement:
         self.time = time
 
 
+class OdometerMode(Enum):
+    PARK = 0
+    DRIVE = 1
+    REVERSE = 2
+
+
 class Odometer:
     def __init__(self, origFix: FourDPosition, calibration: float = 1):
         self.origFix = origFix
         self.distanceAccumulator = 0
         self.lastFix = origFix
+        self.mode = OdometerMode.PARK
 
     def addPosition(self, newFix: FourDPosition):
         displacement = newFix.subtract(self.lastFix)
-        self.distanceAccumulator = self.distanceAccumulator + displacement.distance
+        if self.mode == OdometerMode.DRIVE:
+            self.distanceAccumulator = self.distanceAccumulator + displacement.distance
+        elif self.mode == OdometerMode.REVERSE:
+            self.distanceAccumulator = self.distanceAccumulator - displacement.distance
         self.lastFix = newFix
 
     def get_average_speed(self):
@@ -80,7 +91,10 @@ class CAST:
         ) * self.average  #  kilometers
         actual = self.odo.distanceAccumulator / 1000  # kilometers
         differential = actual - ideal
-        return differential / self.average * 60 * 60  # seconds
+        try:
+            return differential / self.average * 60 * 60  # seconds
+        except ZeroDivisionError:
+            return 0
 
 
 class Instruction:
@@ -96,6 +110,33 @@ class Instruction:
             self.absolute_distance = None
         self.absolute_time = time
         self.speed = speed_kmh
+
+    def set_distance(self, distance_km: float):
+        self.absolute_distance = distance_km * 1000
+
+    def set_time(self, time: datetime):
+        self.absolute_time = time
+
+    def set_speed(self, speed_kmh: float):
+        self.speed = speed_kmh
+
+    def get_distance(self) -> float:
+        if self.absolute_distance is not None:
+            return self.absolute_distance / 1000
+        else:
+            return 0
+
+    def get_time(self) -> datetime:
+        if self.absolute_time is not None:
+            return self.absolute_time
+        else:
+            return datetime(1, 1, 1, 0, 0, 0)
+
+    def get_speed(self) -> float:
+        if self.speed is not None:
+            return self.speed
+        else:
+            return 0
 
     def activate(self, odometer: Odometer):
         self.odometer = odometer
@@ -123,9 +164,12 @@ class Instruction:
 
     def activate_distance_speed(self):
         distance_remaining = self.absolute_distance - self.odometer.distanceAccumulator
-        time_to_add = timedelta(
-            seconds=(distance_remaining / 1000) / self.speed * 60 * 60
-        )
+        try:
+            time_to_add = timedelta(
+                seconds=(distance_remaining / 1000) / self.speed * 60 * 60
+            )
+        except ZeroDivisionError:
+            time_to_add = timedelta(seconds=0)
         self.absolute_time = self.odometer.lastFix.timestamp + time_to_add
 
     def get_time_remaining(self) -> timedelta:
@@ -135,10 +179,6 @@ class Instruction:
     def get_distance_remaining(self) -> float:
         """Returns distance remaining in meters"""
         return self.absolute_distance - self.odometer.distanceAccumulator
-
-    def get_speed(self):
-        """Returns speed in km/h"""
-        return self.speed
 
 
 class RallyComputer:
@@ -175,6 +215,8 @@ class RallyComputer:
         self.current_instruction = instruction
         instruction.activate(self.odo)
         self.cast = CAST(instruction.get_speed(), self.odo)
+        if self.odo.mode == OdometerMode.PARK:
+            self.odo.mode = OdometerMode.DRIVE
 
 
 def block_until_new_fix(last_position):
