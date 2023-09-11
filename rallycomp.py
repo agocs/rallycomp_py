@@ -204,6 +204,24 @@ class RallyComputer:
             )
         )
 
+    def try_update(self):
+        packet, new_fix = self.try_new_fix()
+        if new_fix:
+            speed_mps = packet.hspeed
+            speed_kph = speed_mps * 3.6
+            self.odo.addPosition(
+                FourDPosition(
+                    (packet.lat, packet.lon), packet.alt, packet.get_time(), speed_kph
+                )
+            )
+
+    def try_new_fix(self):
+        packet = gpsd.get_current()
+        if packet.get_time() != self.odo.lastFix.timestamp:
+            return packet, True
+        else:
+            return packet, False
+
     def block_until_new_fix(self):
         packet = gpsd.get_current()
         while packet.get_time() == self.odo.lastFix.timestamp:

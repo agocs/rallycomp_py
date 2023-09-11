@@ -2,6 +2,7 @@ import curses
 import curses.textpad
 import datetime
 import sys
+import time
 import traceback
 from rallycomp import Instruction, RallyComputer
 import math
@@ -270,7 +271,8 @@ def main(argv):
             errorWin.addstr(2, 1, errorStr, curses.color_pair(1))
             errorWin.refresh()
 
-            rcomp.update()
+            rcomp.try_update()
+            time.sleep(0.05)
             initialized = True
 
             # Command Keys
