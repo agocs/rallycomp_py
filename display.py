@@ -149,7 +149,7 @@ def main(argv):
             odometerWindow.bkgd(" ", curses.color_pair(1))
             odometerWindow.box()
             odometerWindow.addstr(
-                1, 1, "Odometer", curses.color_pair(1) | curses.A_BOLD
+                1, 1, "[O]dometer", curses.color_pair(1) | curses.A_BOLD
             )
             odometerWindow.addstr(2, 2, "km:", curses.color_pair(1))
             odometerWindow.addstr(
