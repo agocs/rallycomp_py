@@ -145,7 +145,7 @@ def main(argv):
 
             odo_string = "{:3.3f}".format(rcomp.odo.distanceAccumulator / 1000)
             odo_mode_string = rcomp.odo.mode.name
-            odometerWindow = curses.newwin(6, 20, 9, 1)
+            odometerWindow = curses.newwin(5, 20, 9, 1)
             odometerWindow.bkgd(" ", curses.color_pair(1))
             odometerWindow.box()
             odometerWindow.addstr(
@@ -288,6 +288,7 @@ def main(argv):
             if key == ord("q"):
                 break
             if key > 0 and chr(key) in commandKeys.keys():
+                errorStr = ""
                 commandName = commandKeys[chr(key)][0]
                 commandFunction = commandKeys[chr(key)][1]
                 commandTitlewin.clear()
@@ -310,9 +311,15 @@ def main(argv):
                 commandTitlewin.clear()
                 deactivate_window(commandTitlewin)
             if key == ord(" "):
-                current_instruction = next_instrucion
-                rcomp.start_instruction(current_instruction)
-                next_instrucion = Instruction(speed_kmh=current_instruction.get_speed())
+                errorStr = ""
+                if next_instrucion.verify():
+                    current_instruction = next_instrucion
+                    rcomp.start_instruction(current_instruction)
+                    next_instrucion = Instruction(
+                        speed_kmh=current_instruction.get_speed()
+                    )
+                else:
+                    errorStr = "Instruction is not valid!"
 
     except Exception as err:
         # Just printing from here will not work, as the program is still set to

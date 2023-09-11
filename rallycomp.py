@@ -138,6 +138,16 @@ class Instruction:
         else:
             return 0
 
+    def verify(self) -> bool:
+        if self.absolute_distance is not None and self.speed is not None:
+            return True
+        elif self.absolute_time is not None and self.speed is not None:
+            return True
+        elif self.absolute_time is not None and self.absolute_distance is not None:
+            return True
+        else:
+            return False
+
     def activate(self, odometer: Odometer):
         self.odometer = odometer
         if self.absolute_distance is not None and self.speed is not None:
