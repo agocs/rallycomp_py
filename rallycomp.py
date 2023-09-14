@@ -1,9 +1,17 @@
 from enum import Enum
+from pathlib import Path
 import gpsd
 import math
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
+
+import yaml
+
+
+class Units(Enum):
+    MILES = 0
+    KILOMETERS = 1
 
 
 class FourDPosition:
@@ -92,6 +100,10 @@ class Odometer:
     def get_elapsed_time(self):
         return self.lastFix.timestamp - self.origFix.timestamp
 
+    def reset(self):
+        self.origFix = self.lastFix
+        self.distanceAccumulator = 0
+
 
 class CAST:
     def __init__(self, average: float, odo: Odometer):
@@ -116,6 +128,7 @@ class Instruction:
         time: Optional[datetime] = None,
         speed_kmh: Optional[float] = None,
         distance_km: Optional[float] = None,
+        dummy: bool = False,
     ):
         if distance_km is not None:
             self.absolute_distance = distance_km * 1000
@@ -123,6 +136,7 @@ class Instruction:
             self.absolute_distance = None
         self.absolute_time = time
         self.speed = speed_kmh
+        self.dummy = dummy
 
     def set_distance(self, distance_km: float):
         self.absolute_distance = distance_km * 1000
@@ -208,13 +222,16 @@ class Instruction:
 
 class RallyComputer:
     def __init__(self):
+        self.config = Config("config.yaml")
         gpsd.connect()
         packet = gpsd.get_current()
         while packet.mode < 2:
             time.sleep(1)
             packet = gpsd.get_current()
+        packet_time = packet.get_time().replace(tzinfo=timezone.utc)
         self.odo = Odometer(
-            FourDPosition((packet.lat, packet.lon), packet.alt, packet.get_time())
+            FourDPosition((packet.lat, packet.lon), packet.alt, packet_time),
+            calibration=self.config.get_odometer_calibration(),
         )
         self.cast = CAST(0, self.odo)
         self.current_instruction = Instruction()
@@ -223,10 +240,9 @@ class RallyComputer:
         packet = self.block_until_new_fix()
         speed_mps = packet.hspeed
         speed_kph = speed_mps * 3.6
+        packet_time = packet.get_time().replace(tzinfo=timezone.utc)
         self.odo.addPosition(
-            FourDPosition(
-                (packet.lat, packet.lon), packet.alt, packet.get_time(), speed_kph
-            )
+            FourDPosition((packet.lat, packet.lon), packet.alt, packet_time, speed_kph)
         )
 
     def try_update(self):
@@ -234,9 +250,10 @@ class RallyComputer:
         if new_fix:
             speed_mps = packet.hspeed
             speed_kph = speed_mps * 3.6
+            packet_time = packet.get_time().replace(tzinfo=timezone.utc)
             self.odo.addPosition(
                 FourDPosition(
-                    (packet.lat, packet.lon), packet.alt, packet.get_time(), speed_kph
+                    (packet.lat, packet.lon), packet.alt, packet_time, speed_kph
                 )
             )
 
@@ -260,6 +277,38 @@ class RallyComputer:
         self.cast = CAST(instruction.get_speed(), self.odo)
         if self.odo.mode == OdometerMode.PARK:
             self.odo.mode = OdometerMode.DRIVE
+
+
+class Config:
+    def __init__(self, filename: str) -> None:
+        self.conf = yaml.safe_load(Path(filename).read_text())
+
+    def get_units(self):
+        if not self.conf:
+            return Units.KILOMETERS
+        elif self.conf["units"] == "miles":
+            return Units.MILES
+        else:
+            return Units.KILOMETERS
+
+    def get_timezone(self):
+        if not self.conf:
+            return timezone(timedelta(hours=0))
+        else:
+            hours = self.conf.get("timezone", {}).get("offset_hours", 0)
+            return timezone(timedelta(hours=hours))
+
+    def get_odometer_calibration(self):
+        if not self.conf:
+            return 1
+        else:
+            return self.conf.get("odometer_calibration", 1)
+
+    def set_calibration(self, calibration):
+        if not self.conf:
+            self.conf = {}
+        self.conf["odometer_calibration"] = calibration
+        yaml.safe_dump(self.conf, Path("config.yaml").open("w"))
 
 
 def block_until_new_fix(last_position):

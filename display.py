@@ -15,13 +15,15 @@ def atan_position(width: int, position: int) -> int:
     return int(width / 2) + cursor_offset
 
 
-def update_instruction(instruction: Instruction, command: str, value: str):
+def update_instruction(
+    instruction: Instruction, command: str, value: str, tz: datetime.timezone
+):
     if command == "c":
         instruction.set_speed(float(value))
     elif command == "d":
         instruction.set_distance(float(value))
     elif command == "t":
-        iTime = parser.parse(value, fuzzy=True)
+        iTime = parser.parse(value, fuzzy=True, ignoretz=True).replace(tzinfo=tz)
         instruction.set_time(iTime)
     elif command == "p":
         instruction.speed = 0
@@ -73,7 +75,7 @@ def main(argv):
 
         rcomp = RallyComputer()
 
-        current_instruction = Instruction(distance_km=0, speed_kmh=0)
+        current_instruction = Instruction(distance_km=0, speed_kmh=0, dummy=True)
         rcomp.start_instruction(current_instruction)
         rcomp.odo.mode = OdometerMode.PARK
 
@@ -84,7 +86,10 @@ def main(argv):
 
         while True:
             # Header
-            time_string = rcomp.odo.lastFix.timestamp.strftime("%H:%M:%S.%f")[:-3]
+            localtime = rcomp.odo.lastFix.timestamp.astimezone(
+                rcomp.config.get_timezone()
+            )
+            time_string = localtime.strftime("%H:%M:%S.%f")[:-3]
             headerWindow = curses.newwin(3, curses.COLS - 1, 1, 1)
             headerWindow.bkgd(" ", curses.color_pair(1))
             headerWindow.box()
@@ -303,7 +308,9 @@ def main(argv):
                 commandBox.edit()
                 text = commandBox.gather()
                 try:
-                    commandFunction(next_instrucion, chr(key), text)
+                    commandFunction(
+                        next_instrucion, chr(key), text, rcomp.config.get_timezone()
+                    )
                 except Exception as err:
                     errorStr = str(err)
                 text = ""
@@ -314,6 +321,8 @@ def main(argv):
             if key == ord(" "):
                 errorStr = ""
                 if next_instrucion.verify():
+                    if current_instruction.dummy:
+                        rcomp.odo.reset()
                     current_instruction = next_instrucion
                     rcomp.start_instruction(current_instruction)
                     next_instrucion = Instruction(
@@ -357,6 +366,7 @@ def main(argv):
                     try:
                         expected_distance = float(text)
                         rcomp.odo.calibrate(expected_distance)
+                        rcomp.config.set_calibration(rcomp.odo.calibration)
                         errorStr = "Cal: {}".format(rcomp.odo.calibration)
                     except Exception as err:
                         errorStr = str(err)
