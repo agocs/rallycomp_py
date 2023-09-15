@@ -54,6 +54,7 @@ Allows you to enter the absolute time, absolute distance, and CAST for your next
 - `t` allows you to enter the absolute time of the next instruction. Enter time in `hh:mm:ss` format, then press `[enter]`
 - `d` allows you to enter the absolute distance of the next instruction. Enter it in `dd.dddd` format, then press `[enter]`.
 - `c` allows you to enter the cast of the next instruction. Enter it in `dd.dddd` format, then press `[enter]`.  
+- `p` allows you to enter a PAUSE instruction. Automatically sets CAST 0, distance 0, and time the indicated number of seconds after the end of the current instruction.
 
 Press `[space]` to turn the next instruction into the current instruction.
 
