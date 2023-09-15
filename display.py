@@ -277,7 +277,11 @@ def main(argv):
             errorWin.addstr(2, 1, errorStr, curses.color_pair(1))
             errorWin.refresh()
 
-            rcomp.try_update()
+            try:
+                rcomp.try_update()
+            except Exception as err:
+                errorStr = str(err)
+
             time.sleep(0.05)
             initialized = True
 
