@@ -16,7 +16,11 @@ def atan_position(width: int, position: int) -> int:
 
 
 def update_instruction(
-    instruction: Instruction, command: str, value: str, tz: datetime.timezone
+    instruction: Instruction,
+    command: str,
+    value: str,
+    tz: datetime.timezone,
+    current: Instruction,
 ):
     if command == "c":
         instruction.set_speed(float(value))
@@ -27,7 +31,10 @@ def update_instruction(
         instruction.set_time(iTime)
     elif command == "p":
         instruction.speed = 0
-        # TODO: pause
+        seconds = float(value)
+        instruction.absolute_time = current.absolute_time + datetime.timedelta(
+            seconds=seconds
+        )
     else:
         raise Exception("Unknown command: " + command)
 
@@ -213,7 +220,7 @@ def main(argv):
             )
             currWin.addstr(4, 2, "CAST:", curses.color_pair(1))
             currWin.addstr(4, currWin.getmaxyx()[1] - 6, cast_str, curses.color_pair(1))
-            currWin.addstr(5, 2, "offset:", curses.color_pair(1))
+            currWin.addstr(5, 2, "pace:", curses.color_pair(1))
             currWin.addstr(
                 5, currWin.getmaxyx()[1] - 7, offset_str, curses.color_pair(1)
             )
@@ -313,7 +320,11 @@ def main(argv):
                 text = commandBox.gather()
                 try:
                     commandFunction(
-                        next_instrucion, chr(key), text, rcomp.config.get_timezone()
+                        next_instrucion,
+                        chr(key),
+                        text,
+                        rcomp.config.get_timezone(),
+                        current_instruction,
                     )
                 except Exception as err:
                     errorStr = str(err)
@@ -375,7 +386,7 @@ def main(argv):
                     except Exception as err:
                         errorStr = str(err)
                 elif text.lower().startswith("z"):
-                    rcomp.odo.distanceAccumulator = 0
+                    rcomp.odo.reset()
                 else:
                     errorStr = "Unknown mode! [D][R][P][C][Z]"
 
