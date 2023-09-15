@@ -310,6 +310,24 @@ class Config:
         self.conf["odometer_calibration"] = calibration
         yaml.safe_dump(self.conf, Path("config.yaml").open("w"))
 
+    def to_display_units(self, input_km: float) -> float:
+        if self.get_units() == Units.KILOMETERS:
+            return input_km
+        else:
+            return input_km * 0.621371
+
+    def input_to_units(self, input_value):
+        if self.get_units() == Units.KILOMETERS:
+            return input_value
+        else:
+            return input_value / 0.621371
+
+    def get_unit_name(self):
+        if self.get_units() == Units.KILOMETERS:
+            return "km"
+        else:
+            return "mi"
+
 
 def block_until_new_fix(last_position):
     packet = gpsd.get_current()

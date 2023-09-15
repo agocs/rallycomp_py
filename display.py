@@ -4,7 +4,7 @@ import datetime
 import sys
 import time
 import traceback
-from rallycomp import Instruction, OdometerMode, RallyComputer
+from rallycomp import Config, Instruction, OdometerMode, RallyComputer
 import math
 from dateutil import parser
 
@@ -19,14 +19,17 @@ def update_instruction(
     instruction: Instruction,
     command: str,
     value: str,
-    tz: datetime.timezone,
+    config: Config,
     current: Instruction,
 ):
     if command == "c":
-        instruction.set_speed(float(value))
+        to_set = config.input_to_units(float(value))
+        instruction.set_speed(to_set)
     elif command == "d":
-        instruction.set_distance(float(value))
+        to_set = config.input_to_units(float(value))
+        instruction.set_distance(to_set)
     elif command == "t":
+        tz = config.get_timezone()
         iTime = parser.parse(value, fuzzy=True, ignoretz=True).replace(tzinfo=tz)
         instruction.set_time(iTime)
     elif command == "p":
@@ -155,16 +158,19 @@ def main(argv):
             paceWin.refresh()
 
             # Odometer
-
-            odo_string = "{:3.3f}".format(rcomp.odo.get_accumulated_distance() / 1000)
+            odo_value = rcomp.config.to_display_units(
+                rcomp.odo.get_accumulated_distance() / 1000
+            )
+            odo_string = "{:3.3f}".format(odo_value)
             odo_mode_string = rcomp.odo.mode.name
+            unit_str = rcomp.config.get_unit_name()
             odometerWindow = curses.newwin(5, 20, 9, 1)
             odometerWindow.bkgd(" ", curses.color_pair(1))
             odometerWindow.box()
             odometerWindow.addstr(
                 1, 1, "[O]dometer", curses.color_pair(1) | curses.A_BOLD
             )
-            odometerWindow.addstr(2, 2, "km:", curses.color_pair(1))
+            odometerWindow.addstr(2, 2, unit_str, curses.color_pair(1))
             odometerWindow.addstr(
                 2, odometerWindow.getmaxyx()[1] - 8, odo_string, curses.color_pair(1)
             )
@@ -178,19 +184,23 @@ def main(argv):
             odometerWindow.refresh()
 
             # Speedometer
-            speed_str = "{:2.5f}".format(rcomp.odo.get_last_speed())
+            speed_str = "{:2.5f}".format(
+                rcomp.config.to_display_units(rcomp.odo.get_last_speed())
+            )
             speedWin = curses.newwin(5, 20, 9, 21)
             speedWin.bkgd(" ", curses.color_pair(1))
             speedWin.box()
             speedWin.addstr(1, 1, "Speedometer", curses.color_pair(1) | curses.A_BOLD)
-            speedWin.addstr(2, 2, "km/h:", curses.color_pair(1))
+            speedWin.addstr(2, 2, unit_str + "/h:", curses.color_pair(1))
             speedWin.addstr(
                 2, speedWin.getmaxyx()[1] - 9, speed_str, curses.color_pair(1)
             )
             speedWin.refresh()
 
             # Current Instruction
-            cast_str = "{:2.2f}".format(rcomp.cast.average)
+            cast_str = "{:2.2f}".format(
+                rcomp.config.to_display_units(rcomp.cast.average)
+            )
             offset_str = "{:2.2f}".format(rcomp.cast.get_offset())
             time_remaining_str = str(rcomp.current_instruction.get_time_remaining())
             if len(time_remaining_str) > 11:
@@ -323,7 +333,7 @@ def main(argv):
                         next_instrucion,
                         chr(key),
                         text,
-                        rcomp.config.get_timezone(),
+                        rcomp.config,
                         current_instruction,
                     )
                 except Exception as err:
