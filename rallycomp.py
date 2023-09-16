@@ -105,23 +105,6 @@ class Odometer:
         self.distanceAccumulator = 0
 
 
-class CAST:
-    def __init__(self, average: float, odo: Odometer):
-        self.average = average
-        self.odo = odo
-
-    def get_offset(self):
-        ideal = (
-            self.odo.get_elapsed_time().total_seconds() / 60 / 60
-        ) * self.average  #  kilometers
-        actual = self.odo.get_accumulated_distance() / 1000  # kilometers
-        differential = actual - ideal
-        try:
-            return differential / self.average * 60 * 60  # seconds
-        except ZeroDivisionError:
-            return 0
-
-
 class Instruction:
     def __init__(
         self,
@@ -177,6 +160,8 @@ class Instruction:
 
     def activate(self, odometer: Odometer):
         self.odometer = odometer
+        self.start_distance = odometer.get_accumulated_distance()
+        self.start_time = odometer.lastFix.timestamp
         if self.absolute_distance is not None and self.speed is not None:
             self.activate_distance_speed()
         elif self.absolute_time is not None and self.speed is not None:
@@ -219,6 +204,32 @@ class Instruction:
         """Returns distance remaining in meters"""
         return self.absolute_distance - self.odometer.get_accumulated_distance()
 
+    def get_elapsed_time(self) -> timedelta:
+        """Returns elapsed time in timedelta"""
+        return self.odometer.lastFix.timestamp - self.start_time
+
+    def get_accumulated_distance(self) -> float:
+        """Returns accumulated distance in meters"""
+        return self.odometer.get_accumulated_distance() - self.start_distance
+
+
+class CAST:
+    def __init__(self, instruction: Instruction, odo: Odometer):
+        self.instruction = instruction
+        self.average = instruction.get_speed()
+        self.odo = odo
+
+    def get_offset(self):
+        ideal = (
+            self.instruction.get_elapsed_time().total_seconds() / 60 / 60
+        ) * self.average  #  kilometers
+        actual = self.instruction.get_accumulated_distance() / 1000  # kilometers
+        differential = actual - ideal
+        try:
+            return differential / self.average * 60 * 60  # seconds
+        except ZeroDivisionError:
+            return 0
+
 
 class RallyComputer:
     def __init__(self):
@@ -233,8 +244,8 @@ class RallyComputer:
             FourDPosition((packet.lat, packet.lon), packet.alt, packet_time),
             calibration=self.config.get_odometer_calibration(),
         )
-        self.cast = CAST(0, self.odo)
         self.current_instruction = Instruction()
+        self.cast = CAST(self.current_instruction, self.odo)
 
     def update(self):
         packet = self.block_until_new_fix()
@@ -274,7 +285,7 @@ class RallyComputer:
     def start_instruction(self, instruction: Instruction):
         self.current_instruction = instruction
         instruction.activate(self.odo)
-        self.cast = CAST(instruction.get_speed(), self.odo)
+        self.cast = CAST(instruction, self.odo)
         if self.odo.mode == OdometerMode.PARK:
             self.odo.mode = OdometerMode.DRIVE
 
@@ -314,53 +325,16 @@ class Config:
         if self.get_units() == Units.KILOMETERS:
             return input_km
         else:
-            return input_km * 0.621371
+            return input_km / 1.60934
 
     def input_to_units(self, input_value):
         if self.get_units() == Units.KILOMETERS:
             return input_value
         else:
-            return input_value / 0.621371
+            return input_value * 1.60934
 
     def get_unit_name(self):
         if self.get_units() == Units.KILOMETERS:
             return "km"
         else:
             return "mi"
-
-
-def block_until_new_fix(last_position):
-    packet = gpsd.get_current()
-    while packet.get_time() == last_position.timestamp:
-        time.sleep(0.1)
-        packet = gpsd.get_current()
-    return packet
-
-
-def main_loop():
-    gpsd.connect()
-    packet = gpsd.get_current()
-    while packet.mode < 2:
-        time.sleep(1)
-        packet = gpsd.get_current()
-        print(f"Waiting for fix... (mode: {packet.mode})")
-    print("Fix acquired!")
-
-    odo = Odometer(
-        FourDPosition((packet.lat, packet.lon), packet.alt, packet.get_time())
-    )
-    cast = CAST(20, odo)
-
-    while True:
-        block_until_new_fix(odo.lastFix)
-        packet = gpsd.get_current()
-        odo.addPosition(
-            FourDPosition((packet.lat, packet.lon), packet.alt, packet.get_time())
-        )
-        print(
-            f"Distance: {odo.get_accumulated_distance() / 1000} km \t Average: {odo.get_average_speed()} km/h \t CAST:{cast.average} \t Offset: {cast.get_offset()}"
-        )
-
-
-if __name__ == "__main__":
-    main_loop()

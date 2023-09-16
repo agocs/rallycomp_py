@@ -253,8 +253,12 @@ def main(argv):
 
             # Next Instruction
             nextActTime = next_instrucion.get_time().strftime("%H:%M:%S")
-            nextActDist = "{:3.3f}".format(next_instrucion.get_distance())
-            nextActCast = "{:2.2f}".format(next_instrucion.get_speed())
+            nextActDist = "{:3.3f}".format(
+                rcomp.config.to_display_units(next_instrucion.get_distance())
+            )
+            nextActCast = "{:2.2f}".format(
+                rcomp.config.to_display_units(next_instrucion.get_speed())
+            )
             nextWin = curses.newwin(8, 30, 14, 31)
             nextWin.bkgd(" ", curses.color_pair(1))
             nextWin.box()

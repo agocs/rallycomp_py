@@ -1,5 +1,5 @@
 import unittest
-from rallycomp import FourDPosition, Instruction, Odometer
+from rallycomp import CAST, FourDPosition, Instruction, Odometer, RallyComputer
 from datetime import datetime
 
 
@@ -107,3 +107,55 @@ class TestInstructions(unittest.TestCase):
         instruction = Instruction(time=datetime(2020, 1, 1, 1, 0, 0, 0), distance_km=50)
         instruction.activate(odo)
         self.assertEqual(instruction.get_speed(), 50)
+
+
+class TestPace(unittest.TestCase):
+    def test_simple_pace(self):
+        instruction1 = Instruction(speed_kmh=1, distance_km=1)
+        odo = Odometer(
+            FourDPosition((47.0, -122.0), 150, datetime(2020, 1, 1, 0, 0, 0, 0))
+        )
+        instruction1.activate(odo)
+        cast = CAST(instruction1, odo)
+        odo.accumulate_distance(500)
+        odo.lastFix = FourDPosition(
+            (47.0, -122.0), 150, datetime(2020, 1, 1, 0, 30, 0, 0)
+        )
+        pace = cast.get_offset()
+        self.assertEqual(pace, 0)
+
+    def test_two_instruction_pace(self):
+        instruction1 = Instruction(speed_kmh=1, distance_km=1)
+        odo = Odometer(
+            FourDPosition((47.0, -122.0), 150, datetime(2020, 1, 1, 0, 0, 0, 0))
+        )
+        instruction1.activate(odo)
+        cast = CAST(instruction1, odo)
+        odo.accumulate_distance(500)
+        odo.lastFix = FourDPosition(
+            (47.0, -122.0), 150, datetime(2020, 1, 1, 0, 30, 0, 0)
+        )
+        pace = cast.get_offset()
+        self.assertEqual(pace, 0)
+        odo.accumulate_distance(499.999)
+        odo.lastFix = FourDPosition(
+            (47.0, -122.0), 150, datetime(2020, 1, 1, 1, 0, 0, 0)
+        )
+        pace = cast.get_offset()
+        self.assertEqual(pace, -0.0036000000001035204)
+        #  close enough
+        instruction2 = Instruction(speed_kmh=2, distance_km=1)
+        instruction2.activate(odo)
+        cast = CAST(instruction2, odo)
+        odo.accumulate_distance(500)
+        odo.lastFix = FourDPosition(
+            (47.0, -122.0), 150, datetime(2020, 1, 1, 1, 15, 0, 0)
+        )
+        pace = cast.get_offset()
+        self.assertEqual(pace, 0)
+        odo.accumulate_distance(500)
+        odo.lastFix = FourDPosition(
+            (47.0, -122.0), 150, datetime(2020, 1, 1, 1, 30, 0, 0)
+        )
+        pace = cast.get_offset()
+        self.assertEqual(pace, 0)
